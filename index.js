@@ -1,70 +1,133 @@
-import express from 'express';
-import fs from 'fs';
-import multer from 'multer';
-import cors from 'cors';
 
-import mongoose from 'mongoose';
+import express from "express";
+import mongoose from "mongoose";
+import multer from "multer";
+import cors from "cors";
 
-import { registerValidation, loginValidation, postCreateValidation } from './validations.js';
+import {
+  registerValidator,
+  loginValidator,
+  postCreateValidation,
+} from "./validations/auth.js";
+import checkAuth from "./utils/checkAuth.js";
+import UserController from "./controllers/UserController.js";
+import PostControler from "./controllers/PostController.js";
+import handleValidationErrors from "./utils/handleValidationErrors.js";
 
-import { handleValidationErrors, checkAuth } from './utils/index.js';
+const uri =
+  "mongodb+srv://ksssenia2001:wwwwww@cluster000.sus71bi.mongodb.net/blog?retryWrites=true&w=majority&appName=Cluster000";
 
-import { UserController, PostController } from './controllers/index.js';
+// const url = process.env.MONGODB_URI;
 
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log('DB ok'))
-  .catch((err) => console.log('DB error', err));
+  .connect(process.env.MONGODB_URI || uri)
+  .then(() => console.log("DB okkkk"))
+  .catch(() => console.log("error", error));
 
 const app = express();
 
+//хранилище для всех картинок
 const storage = multer.diskStorage({
+  //путь куда будем сохранять все картинки
   destination: (_, __, cb) => {
-    if (!fs.existsSync('uploads')) {
-      fs.mkdirSync('uploads');
-    }
-    cb(null, 'uploads');
+    // не получает ошибок и сохраняет все картинки в папку uploads -> функция объясняет какой путь необходимо использовать
+    cb(null, "uploads");
   },
   filename: (_, file, cb) => {
+    // + Вытаскиваем из файла оригинальное название
     cb(null, file.originalname);
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage }); // объясняем multer что у него есть хранилище
 
+//необходимо научить запрос формату json
+//данная функция позволит читать запросы
+// в терминале нам поступило сообщение о введенных при авторизации в json-формате логин с паролем
+//{ "email": "example@mail.ru", "password": "123456" }
+// express смог прочитать, что хранится в запросе
 app.use(express.json());
+
+// cors обычно ставит блокировки для передачи домена,
+// мы связали два локалхоста, что 3000 запрашивает с 4444 посты
 app.use(cors());
-app.use('/uploads', express.static('uploads'));
 
-app.post('/auth/login', loginValidation, handleValidationErrors, UserController.login);
-app.post('/auth/register', registerValidation, handleValidationErrors, UserController.register);
-app.get('/auth/me', checkAuth, UserController.getMe);
+// если придет любой запрос на uploads,
+// тогда с помощью функции static из библиотеки express -> есть ли в папке uploads
+// то что я передаю
+app.use("/uploads", express.static("uploads"));
 
-app.post('/upload', checkAuth, upload.single('image'), (req, res) => {
-  res.json({
-    url: `/uploads/${req.file.originalname}`,
+//Запросы
+
+// Авторизация, необходимо понять есть ли пользователь в б/д
+app.post(
+  "/auth/login",
+  loginValidator,
+  handleValidationErrors,
+  UserController.login
+);
+
+// запрос при переходе на данной ссылке, для начала выполнится условие registerValidator, затем будет выполняться функция
+app.post(
+  "/auth/register",
+  registerValidator,
+  handleValidationErrors,
+  UserController.register
+);
+
+
+
+//получение инфы о пользователе
+
+app.get("/auth/me", checkAuth, UserController.getMe);
+
+app.get("/user/:id", checkAuth, UserController.getUser);
+
+app.post("/upload", upload.single("image"), (req, res) => {
+  // вернет картинку по сохраненному пути
+  return res.json({
+    url: `/uploads/${req.file.originalname}`, //если все ОК -> вернет изображение из хранилища
   });
 });
 
-app.get('/tags', PostController.getLastTags);
+// Для различных действий с постами - CRUD
+app.get("/posts", PostControler.getAll);
+// app.get("/posts/:id", PostControler.getPostsByUser);
 
-app.get('/posts', PostController.getAll);
-app.get('/posts/tags', PostController.getLastTags);
-app.get('/posts/:id', PostController.getOne);
-app.post('/posts', checkAuth, postCreateValidation, handleValidationErrors, PostController.create);
-app.delete('/posts/:id', checkAuth, PostController.remove);
-app.patch(
-  '/posts/:id',
+app.get("/tags", PostControler.getTags);
+app.get("/posts/:id", PostControler.getOne);
+app.post(
+  "/posts",
   checkAuth,
   postCreateValidation,
   handleValidationErrors,
-  PostController.update,
+  PostControler.create
 );
+app.delete("/posts/:id", checkAuth, PostControler.remove);
+app.patch(
+  "/posts/:id",
+  checkAuth,
+  handleValidationErrors,
+  PostControler.update
+);
+app.patch(
+  "/user/me",
+  checkAuth,
+  handleValidationErrors,
+  UserController.changeMyAcc
+);
+app.patch(
+  "/user/:id",
+  checkAuth,
+  handleValidationErrors,
+  UserController.subscribersUser
+);
+
+
 
 app.listen(process.env.PORT || 4444, (err) => {
   if (err) {
     return console.log(err);
   }
-
-  console.log('Server OK');
+  console.log("Good");
 });

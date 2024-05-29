@@ -1,34 +1,47 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
+//модель пользователя
+
+// В схеме будут все параметры пользователя
 const PostSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: true,
     },
-    text: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     tags: {
       type: Array,
-      default: [],
+      default: [], //если не будет ничего из тегов -> вернется пустой массив
+    },
+    comments: {
+      type: Array,
+      default: [], //если не будет ничего из тегов -> вернется пустой массив
     },
     viewsCount: {
+      //просмотры статьи
       type: Number,
-      default: 0,
+      default: 0, //если не будет просмотров -> 0
+    },
+    likes: {
+      //просмотры статьи
+      type: Array,
+      default: [], //если не будет просмотров -> 0
     },
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: mongoose.Schema.Types.ObjectId, // получние айди пользователя из б/д
+      ref: "User",
       required: true,
     },
-    imageUrl: String,
+    imageUrl: {
+      required: true,
+      type: String,
+    },
   },
   {
+    // дата создания
     timestamps: true,
-  },
+  }
 );
 
-export default mongoose.model('Post', PostSchema);
+//отправка нашей схемы
+export default mongoose.model("Post", PostSchema);
